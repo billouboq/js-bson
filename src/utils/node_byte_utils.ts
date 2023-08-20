@@ -10,6 +10,7 @@ type NodeJsBuffer = ArrayBufferView &
   };
 type NodeJsBufferConstructor = Omit<Uint8ArrayConstructor, 'from'> & {
   alloc: (size: number) => NodeJsBuffer;
+  allocUnsafe: (size: number) => NodeJsBuffer;
   from(array: number[]): NodeJsBuffer;
   from(array: Uint8Array): NodeJsBuffer;
   from(array: ArrayBuffer): NodeJsBuffer;
@@ -85,6 +86,10 @@ export const nodeJsByteUtils = {
 
   allocate(size: number): NodeJsBuffer {
     return Buffer.alloc(size);
+  },
+
+  allocateUnsafe(size: number): NodeJsBuffer {
+    return Buffer.allocUnsafe(size);
   },
 
   equals(a: Uint8Array, b: Uint8Array): boolean {

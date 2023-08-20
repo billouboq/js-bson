@@ -33,6 +33,13 @@ function isReactNative() {
   return typeof navigator === 'object' && navigator.product === 'ReactNative';
 }
 
+function bufferAllocate(size: number): Uint8Array {
+  if (typeof size !== 'number') {
+    throw new TypeError(`The "size" argument must be of type number. Received ${String(size)}`);
+  }
+  return new Uint8Array(size);
+}
+
 /** @internal */
 export function webMathRandomBytes(byteLength: number) {
   if (byteLength < 0) {
@@ -101,12 +108,8 @@ export const webByteUtils = {
     throw new BSONError(`Cannot make a Uint8Array from ${String(potentialUint8array)}`);
   },
 
-  allocate(size: number): Uint8Array {
-    if (typeof size !== 'number') {
-      throw new TypeError(`The "size" argument must be of type number. Received ${String(size)}`);
-    }
-    return new Uint8Array(size);
-  },
+  allocate: bufferAllocate,
+  allocateUnsafe: bufferAllocate,
 
   equals(a: Uint8Array, b: Uint8Array): boolean {
     if (a.byteLength !== b.byteLength) {

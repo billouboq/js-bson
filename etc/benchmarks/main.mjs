@@ -102,7 +102,7 @@ await runner({
 /// nextBatch simulate
 /// nextBatch: [ { string * 20 } * 1000 ] /// Garbage call
 await runner({
-  skip: false,
+  skip: true,
   name: 'deserialize a large batch of documents each with an array of many strings',
   iterations,
   setup(libs) {
@@ -158,7 +158,7 @@ await runner({
 });
 
 await runner({
-  skip: true,
+  skip: false,
   name: 'deserialize a large batch of documents each with an array of many Int64s',
   iterations,
   setup(libs) {
@@ -166,7 +166,33 @@ await runner({
     return bson.serialize({
       nextBatch: Array.from({ length: 1000 }, () => ({
         _id: new bson.ObjectId(),
-        arrayField: Array.from({ length: 100 }, (_, i) => bson.Long.fromInt(i))
+        stringTest: 'abc',
+        numberTest: 1234,
+        floatTest: 1234.12213,
+        dateTest: new Date(),
+        objectTest1: {
+          objectTest2: {
+            numberInObject2: 12345,
+            floatInObject2: 12345.12212
+          },
+          objectArray: [{ numberInArray: 1 }, { numberInArray: 1 }, { numberInArray: 1 }]
+        },
+        arrayField: Array.from({ length: 1 }, (_, i) => bson.Long.fromInt(i)),
+        objectAgain: {
+          _id: new bson.ObjectId(),
+          stringTest: 'abc',
+          numberTest: 1234,
+          floatTest: 1234.12213,
+          dateTest: new Date(),
+          objectTest1: {
+            objectTest2: {
+              numberInObject2: 12345,
+              floatInObject2: 12345.12212
+            },
+            objectArray: [{ numberInArray: 1 }, { numberInArray: 1 }, { numberInArray: 1 }]
+          },
+          arrayField: Array.from({ length: 5 }, (_, i) => bson.Long.fromInt(i))
+        }
       }))
     });
   },

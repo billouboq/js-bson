@@ -138,7 +138,7 @@ export class ObjectId extends BSONValue {
     }
 
     const inc = ObjectId.getInc();
-    const buffer = ByteUtils.allocate(12);
+    const buffer = ByteUtils.allocateUnsafe(12);
 
     // 4-byte timestamp
     BSONDataView.fromUint8Array(buffer).setUint32(0, time, false);

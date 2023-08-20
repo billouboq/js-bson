@@ -3,13 +3,11 @@
 import { createHistogram } from 'perf_hooks';
 import { readFile } from 'fs/promises';
 import { cpus, totalmem } from 'os';
-import { exec as execCb } from 'child_process';
 import { promisify, types } from 'util';
 import { writeFile } from 'fs/promises';
 import * as semver from 'semver';
 import v8Profiler from 'v8-profiler-next';
 import chalk from 'chalk';
-const exec = promisify(execCb);
 
 const hw = cpus();
 const ram = totalmem() / 1024 ** 3;
@@ -55,7 +53,7 @@ export function getCurrentLocalBSON(libs) {
 
 export async function getLibs() {
   const bsonVersions = await readJSONFile('./bson_versions.json');
-  const entries = bsonVersions.versions.map(async (version) => {
+  const entries = bsonVersions.versions.map(async version => {
     const bsonPath = `../../node_modules/bson${version.replaceAll('.', '')}`;
     const packageVersion = (await readJSONFile(`${bsonPath}/package.json`)).version;
     if (semver.lte(semver.coerce(version), '3.0.0')) {
@@ -96,7 +94,9 @@ export async function getLibs() {
 const printHistogram = (name, h) => {
   const makeReadableTime = nanoseconds => (nanoseconds / 1e6).toFixed(3).padStart(7, ' ');
   const line = [
-    `| ${chalk.green(name.replaceAll(' ', '-'))} | ${chalk.cyan('max')}:    ${chalk.red(makeReadableTime(h.max))} ms |`,
+    `| ${chalk.green(name.replaceAll(' ', '-'))} | ${chalk.cyan('max')}:    ${chalk.red(
+      makeReadableTime(h.max)
+    )} ms |`,
     `  ${chalk.cyan('min')}:    ${chalk.red(makeReadableTime(h.min))} ms |`,
     `  ${chalk.cyan('mean')}:   ${chalk.red(makeReadableTime(h.mean))} ms |`,
     `  ${chalk.cyan('stddev')}: ${chalk.red(makeReadableTime(h.stddev))} ms |`,

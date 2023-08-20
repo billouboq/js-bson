@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { Binary, UUID } from '../binary';
 import type { Document } from '../bson';
 import { Code } from '../code';
@@ -16,6 +17,8 @@ import { BSONSymbol } from '../symbol';
 import { Timestamp } from '../timestamp';
 import { BSONDataView, ByteUtils } from '../utils/byte_utils';
 import { validateUtf8 } from '../validate_utf8';
+
+type UTF8Validation = boolean | Record<string, true> | Record<string, false>;
 
 /** @public */
 export interface DeserializeOptions {
@@ -76,7 +79,7 @@ export interface DeserializeOptions {
    *  validation: { utf8: { a: false, b: false } }
    * ```
    */
-  validation?: { utf8: boolean | Record<string, true> | Record<string, false> };
+  validation?: { utf8: UTF8Validation };
 }
 
 // Internal long versions
@@ -122,8 +125,10 @@ export function internalDeserialize(
     );
   }
 
+  const utf8Validation = (options && options.validation && options.validation.utf8) || true;
+
   // Start deserialization
-  return deserializeObject(buffer, index, options, isArray);
+  return deserializeObject(buffer, index, options, isArray, utf8Validation);
 }
 
 const allowedDBRefKeys = /^\$ref$|^\$id$|^\$db$/;
@@ -132,7 +137,8 @@ function deserializeObject(
   buffer: Uint8Array,
   index: number,
   options: DeserializeOptions,
-  isArray = false
+  isArray: boolean = false,
+  utf8Validation: UTF8Validation = true
 ) {
   const fieldsAsRaw = options['fieldsAsRaw'] == null ? null : options['fieldsAsRaw'];
 
@@ -156,41 +162,38 @@ function deserializeObject(
     throw new BSONError('Must either request bigint or Long for int64 deserialization');
   }
 
-  // Ensures default validation option if none given
-  const validation = options.validation == null ? { utf8: true } : options.validation;
-
-  // Shows if global utf-8 validation is enabled or disabled
-  let globalUTFValidation = true;
   // Reflects utf-8 validation setting regardless of global or specific key validation
   let validationSetting: boolean;
   // Set of keys either to enable or disable validation on
-  const utf8KeysSet = new Set();
+  let utf8KeysSet;
 
   // Check for boolean uniformity and empty validation option
-  const utf8ValidatedKeys = validation.utf8;
-  if (typeof utf8ValidatedKeys === 'boolean') {
-    validationSetting = utf8ValidatedKeys;
+  if (typeof utf8Validation === 'boolean') {
+    validationSetting = utf8Validation;
   } else {
-    globalUTFValidation = false;
-    const utf8ValidationValues = Object.keys(utf8ValidatedKeys).map(function (key) {
-      return utf8ValidatedKeys[key];
+    const utf8ValidationKeys = Object.keys(utf8Validation);
+    const utf8ValidationValues = utf8ValidationKeys.map(function (key) {
+      return utf8Validation[key];
     });
+
     if (utf8ValidationValues.length === 0) {
       throw new BSONError('UTF-8 validation setting cannot be empty');
     }
+
     if (typeof utf8ValidationValues[0] !== 'boolean') {
       throw new BSONError('Invalid UTF-8 validation option, must specify boolean values');
     }
+
     validationSetting = utf8ValidationValues[0];
+
     // Ensures boolean uniformity in utf-8 validation (all true or all false)
     if (!utf8ValidationValues.every(item => item === validationSetting)) {
       throw new BSONError('Invalid UTF-8 validation option - keys must be all true or all false');
     }
-  }
 
-  // Add keys to set that will either be validated or not based on validationSetting
-  if (!globalUTFValidation) {
-    for (const key of Object.keys(utf8ValidatedKeys)) {
+    utf8KeysSet = new Set();
+
+    for (const key of utf8ValidationKeys) {
       utf8KeysSet.add(key);
     }
   }
@@ -217,7 +220,6 @@ function deserializeObject(
   let isPossibleDBRef = isArray ? false : null;
 
   // While we have more left data left keep parsing
-  const dataview = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   while (!done) {
     // Read the type
     const elementType = buffer[index++];
@@ -240,7 +242,8 @@ function deserializeObject(
 
     // shouldValidateKey is true if the key should be validated, false otherwise
     let shouldValidateKey = true;
-    if (globalUTFValidation || utf8KeysSet.has(name)) {
+
+    if (utf8KeysSet && utf8KeysSet.has(name)) {
       shouldValidateKey = validationSetting;
     } else {
       shouldValidateKey = !validationSetting;
@@ -269,7 +272,7 @@ function deserializeObject(
       value = getValidatedString(buffer, index, index + stringSize - 1, shouldValidateKey);
       index = index + stringSize;
     } else if (elementType === constants.BSON_DATA_OID) {
-      const oid = ByteUtils.allocate(12);
+      const oid = ByteUtils.allocateUnsafe(12);
       oid.set(buffer.subarray(index, index + 12));
       value = new ObjectId(oid);
       index = index + 12;
@@ -284,9 +287,11 @@ function deserializeObject(
         (buffer[index++] << 16) |
         (buffer[index++] << 24);
     } else if (elementType === constants.BSON_DATA_NUMBER && promoteValues === false) {
+      const dataview = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
       value = new Double(dataview.getFloat64(index, true));
       index = index + 8;
     } else if (elementType === constants.BSON_DATA_NUMBER) {
+      const dataview = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
       value = dataview.getFloat64(index, true);
       index = index + 8;
     } else if (elementType === constants.BSON_DATA_DATE) {
@@ -319,11 +324,7 @@ function deserializeObject(
       if (raw) {
         value = buffer.slice(index, index + objectSize);
       } else {
-        let objectOptions = options;
-        if (!globalUTFValidation) {
-          objectOptions = { ...options, validation: { utf8: shouldValidateKey } };
-        }
-        value = deserializeObject(buffer, _index, objectOptions, false);
+        value = deserializeObject(buffer, _index, options, false, utf8Validation);
       }
 
       index = index + objectSize;
@@ -344,10 +345,7 @@ function deserializeObject(
         arrayOptions = { ...options, raw: true };
       }
 
-      if (!globalUTFValidation) {
-        arrayOptions = { ...arrayOptions, validation: { utf8: shouldValidateKey } };
-      }
-      value = deserializeObject(buffer, _index, arrayOptions, true);
+      value = deserializeObject(buffer, _index, arrayOptions, true, utf8Validation);
       index = index + objectSize;
 
       if (buffer[index - 1] !== 0) throw new BSONError('invalid array terminator byte');
@@ -384,7 +382,7 @@ function deserializeObject(
       }
     } else if (elementType === constants.BSON_DATA_DECIMAL128) {
       // Buffer to contain the decimal bytes
-      const bytes = ByteUtils.allocate(16);
+      const bytes = ByteUtils.allocateUnsafe(16);
       // Copy the next 16 bytes into the bytes buffer
       bytes.set(buffer.subarray(index, index + 16), 0);
       // Update index
@@ -673,7 +671,7 @@ function deserializeObject(
       )
         throw new BSONError('bad string length in bson');
       // Namespace
-      if (validation != null && validation.utf8) {
+      if (utf8Validation) {
         if (!validateUtf8(buffer, index, index + stringSize - 1)) {
           throw new BSONError('Invalid UTF-8 string in BSON document');
         }
@@ -683,7 +681,7 @@ function deserializeObject(
       index = index + stringSize;
 
       // Read the oid
-      const oidBuffer = ByteUtils.allocate(12);
+      const oidBuffer = ByteUtils.allocateUnsafe(12);
       oidBuffer.set(buffer.subarray(index, index + 12), 0);
       const oid = new ObjectId(oidBuffer);
 
