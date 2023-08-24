@@ -297,7 +297,6 @@ function serializeObject(
   value: Document,
   index: number,
   checkKeys: boolean,
-  depth: number,
   serializeFunctions: boolean,
   ignoreUndefined: boolean,
   path: Set<Document>
@@ -320,7 +319,6 @@ function serializeObject(
     value,
     checkKeys,
     index,
-    depth + 1,
     serializeFunctions,
     ignoreUndefined,
     path
@@ -435,7 +433,6 @@ function serializeCode(
   value: Code,
   index: number,
   checkKeys = false,
-  depth = 0,
   serializeFunctions = false,
   ignoreUndefined = true,
   path: Set<Document>
@@ -475,7 +472,6 @@ function serializeCode(
       value.scope,
       checkKeys,
       index,
-      depth + 1,
       serializeFunctions,
       ignoreUndefined,
       path
@@ -582,7 +578,6 @@ function serializeDBRef(
   key: string,
   value: DBRef,
   index: number,
-  depth: number,
   serializeFunctions: boolean,
   path: Set<Document>
 ) {
@@ -606,16 +601,7 @@ function serializeDBRef(
   }
 
   output = Object.assign(output, value.fields);
-  const endIndex = serializeInto(
-    buffer,
-    output,
-    false,
-    index,
-    depth + 1,
-    serializeFunctions,
-    true,
-    path
-  );
+  const endIndex = serializeInto(buffer, output, false, index, serializeFunctions, true, path);
 
   // Calculate object size
   const size = endIndex - startIndex;
@@ -633,7 +619,6 @@ export function serializeInto(
   object: Document,
   checkKeys: boolean,
   startingIndex: number,
-  depth: number,
   serializeFunctions: boolean,
   ignoreUndefined: boolean,
   path: Set<Document> | null
@@ -714,7 +699,6 @@ export function serializeInto(
           value,
           index,
           checkKeys,
-          depth,
           serializeFunctions,
           ignoreUndefined,
           path
@@ -741,7 +725,6 @@ export function serializeInto(
           value,
           index,
           checkKeys,
-          depth,
           serializeFunctions,
           ignoreUndefined,
           path
@@ -751,7 +734,7 @@ export function serializeInto(
       } else if (value._bsontype === 'BSONSymbol') {
         index = serializeSymbol(buffer, key, value, index);
       } else if (value._bsontype === 'DBRef') {
-        index = serializeDBRef(buffer, key, value, index, depth, serializeFunctions, path);
+        index = serializeDBRef(buffer, key, value, index, serializeFunctions, path);
       } else if (value._bsontype === 'BSONRegExp') {
         index = serializeBSONRegExp(buffer, key, value, index);
       } else if (value._bsontype === 'Int32') {
@@ -824,7 +807,6 @@ export function serializeInto(
           value,
           index,
           checkKeys,
-          depth,
           serializeFunctions,
           ignoreUndefined,
           path
@@ -849,7 +831,6 @@ export function serializeInto(
           value,
           index,
           checkKeys,
-          depth,
           serializeFunctions,
           ignoreUndefined,
           path
@@ -861,7 +842,7 @@ export function serializeInto(
       } else if (value._bsontype === 'BSONSymbol') {
         index = serializeSymbol(buffer, key, value, index);
       } else if (value._bsontype === 'DBRef') {
-        index = serializeDBRef(buffer, key, value, index, depth, serializeFunctions, path);
+        index = serializeDBRef(buffer, key, value, index, serializeFunctions, path);
       } else if (value._bsontype === 'BSONRegExp') {
         index = serializeBSONRegExp(buffer, key, value, index);
       } else if (value._bsontype === 'Int32') {
@@ -934,7 +915,6 @@ export function serializeInto(
           value,
           index,
           checkKeys,
-          depth,
           serializeFunctions,
           ignoreUndefined,
           path
@@ -959,7 +939,6 @@ export function serializeInto(
           value,
           index,
           checkKeys,
-          depth,
           serializeFunctions,
           ignoreUndefined,
           path
@@ -971,7 +950,7 @@ export function serializeInto(
       } else if (value._bsontype === 'BSONSymbol') {
         index = serializeSymbol(buffer, key, value, index);
       } else if (value._bsontype === 'DBRef') {
-        index = serializeDBRef(buffer, key, value, index, depth, serializeFunctions, path);
+        index = serializeDBRef(buffer, key, value, index, serializeFunctions, path);
       } else if (value._bsontype === 'BSONRegExp') {
         index = serializeBSONRegExp(buffer, key, value, index);
       } else if (value._bsontype === 'Int32') {
